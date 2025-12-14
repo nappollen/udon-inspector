@@ -1,0 +1,40 @@
+VisualElement {
+}
+
+.assembly-textfield.last-line {
+    margin-top: 0;
+}
+
+.assembly-textfield {
+    -unity-font-definition: resource("RobotoMono-Regular SDF");
+}
+
+.assembly-textfield.last-line .unity-base-field__input {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top-width: 0;
+}
+
+.assembly-textfield.middle-line .unity-base-field__input {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.assembly-textfield.middle-line {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.assembly-textfield.first-line .unity-base-field__input {
+    border-bottom-width: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.assembly-textfield.first-line {
+    margin-bottom: 0;
+}

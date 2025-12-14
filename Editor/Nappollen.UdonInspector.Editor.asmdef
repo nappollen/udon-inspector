@@ -1,0 +1,22 @@
+{
+    "name": "Nappollen.UdonInspector.Editor",
+    "rootNamespace": "Nappollen.UdonInspector",
+    "references": [
+        "Nappollen.UdonInspector.Runtime",
+        "UdonSharp.Runtime",
+        "VRC.Udon",
+        "VRC.Udon.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
+

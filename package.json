@@ -1,0 +1,15 @@
+{
+  "name": "nappollen.udon-inspector",
+  "version": "1.0.0",
+  "displayName": "Nappollen Udon Inspector",
+  "description": "Tools for inspecting Udon behaviours and variables in the Unity Editor.",
+  "unity": "2022.3",
+  "readme": "README.md",
+  "license": "MIT",
+  "author": {
+    "name": "Nappollen"
+  },
+  "vpmDependencies": {
+    "com.vrchat.worlds": "^3.8.x"
+  }
+}
