@@ -9,6 +9,7 @@
   "author": {
     "name": "Nappollen"
   },
+  "url": "https://github.com/nappollen/udon-inspector",
   "vpmDependencies": {
     "com.vrchat.worlds": "^3.8.x"
   }
