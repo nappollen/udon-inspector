@@ -27,7 +27,7 @@ namespace Nappollen.UdonInspector.Editor {
 
 		private VisualElement _root;
 
-		[MenuItem("Tools/Udon Inspector")]
+		[MenuItem("Nappollen/Udon Inspector")]
 		public static void ShowWindow()
 			=> GetWindow<UdonSharpInspectorEditor>("Udon Inspector");
 
@@ -408,7 +408,11 @@ namespace Nappollen.UdonInspector.Editor {
 			IUdonProgram program = dump?.GetProgram();
 			program ??= dump?.GetSerializedProgramAsset()?.ReadSerializedProgram();
 
-			var symbols = program?.SymbolTable.GetSymbols().ToArray();
+			var symbols = program?.SymbolTable.GetSymbols()
+				.Sort()
+				.Reverse()
+				.ToArray();
+			
 			if (symbols == null || symbols.Length == 0) {
 				variables.style.display   = DisplayStyle.None;
 				noVariables.style.display = DisplayStyle.Flex;
@@ -440,10 +444,10 @@ namespace Nappollen.UdonInspector.Editor {
 				if (child.userData is not string symbol || !symbolNames.Contains(symbol)) continue;
 
 				var address = program.SymbolTable.GetAddressFromSymbol(symbol);
-				// var value   = program.Heap.GetHeapVariable(address);
-				var type = program.Heap.GetHeapVariableType(address);
+				var value   = program.Heap.GetHeapVariable(address);
+				var type    = program.Heap.GetHeapVariableType(address);
 
-				UpdateField(child, symbol, null);
+				UpdateField(child, symbol, value);
 				var infos = new List<string> { $"Type: {type.FullName}" };
 				child.tooltip = string.Join("\n", infos);
 				child.SetEnabled(true);
@@ -609,6 +613,13 @@ namespace Nappollen.UdonInspector.Editor {
 		}
 
 		private static VisualElement CreateField(Type type) {
+			
+			if (type.IsSubclassOf(typeof(Object)))
+				return new ObjectField {
+					objectType = type,
+					value      = null
+				};
+
 			if (type == typeof(string))
 				return new TextField();
 			if (type == typeof(int))
@@ -671,12 +682,6 @@ namespace Nappollen.UdonInspector.Editor {
 					fixedItemHeight     = 20,
 				};
 
-			if (type.IsSubclassOf(typeof(Object)))
-				return new ObjectField {
-					objectType = type,
-					value      = null
-				};
-
 			return new Label($"<text>: <text>") {
 				// margin: 1px 3px 1px 3px
 				style = {
@@ -726,14 +731,6 @@ namespace Nappollen.UdonInspector.Editor {
 			}
 
 			return result;
-		}
-
-		private string ParseAttribute(object a) {
-			var s = (a.GetType().FullName ?? a.GetType().Name).Replace("Attribute", "");
-			return a switch {
-				UdonSyncedAttribute synced => $"{s}[SyncType={synced.NetworkSyncType.ToString()}]",
-				_                          => s
-			};
 		}
 	}
 

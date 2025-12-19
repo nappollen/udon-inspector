@@ -1,6 +1,6 @@
 # Nappollen Udon Inspector
 
-nappollen.udon-inspector v1.0.0
+nappollen.udon-inspector
 
 ![Udon Inspector Screenshot](./preview.png)
 
