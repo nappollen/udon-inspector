@@ -7,7 +7,8 @@
   "readme": "README.md",
   "license": "MIT",
   "author": {
-    "name": "Nappollen"
+    "name": "Nappollen",
+    "url": "https://nappollen.github.io/vpm"
   },
   "url": "https://github.com/nappollen/udon-inspector",
   "vpmDependencies": {
