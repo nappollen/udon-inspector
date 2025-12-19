@@ -25,3 +25,9 @@ _*/
 [Bb]in/
 [Oo]bj/
 
+# Package specific
+_*
+
+CHANGELOG.md.meta
+LICENSE.meta
+README.md.meta
