@@ -31,7 +31,7 @@ Add the following line to your `Packages/manifest.json`:
 
 ## Usage
 
-You can open the Udon Inspector by selecting **Nappollen > Udon Inspector** from the Unity Editor menu.
+You can open the Udon Inspector by selecting **Nappollen > Udon Inspector** from the Unity Editor menu.  
 You can extract all variables and UdonAssemblies from opened scenes by selecting the options in the **Tools > Udon Inspector** menu item.
 
 
