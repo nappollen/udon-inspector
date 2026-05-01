@@ -54,7 +54,10 @@
                         <ui:Foldout text="Assembly" style="margin-top: 4px; margin-right: 4px; margin-bottom: 4px; margin-left: 4px;">
                             <ui:VisualElement style="flex-grow: 1;">
                                 <ui:Label tabindex="-1" text="This UdonBehaviour can&apos;t parsed." parse-escape-sequences="true" display-tooltip-when-elided="true" name="no_assembly" style="margin-top: 1px; margin-right: 3px; margin-bottom: 1px; margin-left: 3px; white-space: nowrap; overflow: hidden;" />
-                                <ui:Button text="Copy" parse-escape-sequences="true" display-tooltip-when-elided="true" name="copy_assembly" tooltip="Copy the assembly to clipboard" />
+                                <ui:VisualElement style="flex-direction: row;">
+                                    <ui:Button text="Copy" parse-escape-sequences="true" display-tooltip-when-elided="true" name="copy_assembly" tooltip="Copy the assembly to clipboard" style="flex-grow: 1;" />
+                                    <ui:Button text="Open in ChatGPT" parse-escape-sequences="true" display-tooltip-when-elided="true" name="open_chatgpt" tooltip="Copy the ChatGPT conversion prompt and open ChatGPT" />
+                                </ui:VisualElement>
                                 <ui:VisualElement name="assembly" style="flex-grow: 1;">
                                     <ui:TextField picking-mode="Ignore" class="assembly-textfield first-line" />
                                     <ui:TextField picking-mode="Ignore" class="assembly-textfield middle-line" />

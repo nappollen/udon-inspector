@@ -27,6 +27,14 @@ namespace Nappollen.UdonInspector.Editor {
 
 		private VisualElement _root;
 
+		// Assembly cache
+		private int    _cachedAssemblyId  = -1;
+		private string _cachedAssemblyStr = null;
+		private int    _assemblyOpId      = 0;
+
+		// Variables cache
+		private int _cachedVariablesId = -1;
+
 		[MenuItem("Nappollen/Udon Inspector")]
 		public static void ShowWindow()
 			=> GetWindow<UdonSharpInspectorEditor>("Udon Inspector");
@@ -135,14 +143,19 @@ namespace Nappollen.UdonInspector.Editor {
 				var copyAssembly = _root?.Q<Button>("copy_assembly");
 				copyAssembly?.RegisterCallback<ClickEvent>(
 					e => {
-						if (!_selectedBehaviour) return;
-						var          dump    = _selectedBehaviour;
-						IUdonProgram program = dump?.GetProgram();
-						program ??= dump?.GetSerializedProgramAsset()?.ReadSerializedProgram();
-						if (program == null) return;
-						if (!AssemblerExtractor.Extract(program, out var str)) return;
-						EditorGUIUtility.systemCopyBuffer = str;
+						if (_cachedAssemblyStr == null) return;
+						EditorGUIUtility.systemCopyBuffer = _cachedAssemblyStr;
 						Debug.Log("Udon assembly copied to clipboard.");
+					}
+				);
+
+				var chatGptBtn = _root?.Q<Button>("open_chatgpt");
+				chatGptBtn?.RegisterCallback<ClickEvent>(
+					e => {
+						if (_cachedAssemblyStr == null) return;
+						EditorGUIUtility.systemCopyBuffer = ChatGptPrompt.Build(_cachedAssemblyStr);
+						Application.OpenURL("https://chatgpt.com/");
+						Debug.Log("ChatGPT prompt copied to clipboard and browser opened.");
 					}
 				);
 
@@ -269,70 +282,122 @@ namespace Nappollen.UdonInspector.Editor {
 		}
 
 		private void UpdateAssembly() {
-			var assembly   = _root?.Q("assembly");
-			var noAssembly = _root?.Q("no_assembly");
-			var copyButton = _root?.Q<Button>("copy_assembly");
+			var assembly      = _root?.Q("assembly");
+			var noAssembly    = _root?.Q("no_assembly");
+			var copyButton    = _root?.Q<Button>("copy_assembly");
+			var chatGptButton = _root?.Q<Button>("open_chatgpt");
 			if (assembly == null || noAssembly == null || copyButton == null) return;
+
 			if (!_selectedBehaviour) {
+				_cachedAssemblyId  = -1;
+				_cachedAssemblyStr = null;
 				assembly.style.display   = DisplayStyle.None;
 				noAssembly.style.display = DisplayStyle.Flex;
 				copyButton.SetEnabled(false);
+				chatGptButton?.SetEnabled(false);
 				return;
 			}
 
-			var          dump    = _selectedBehaviour;
-			IUdonProgram program = dump?.GetProgram();
-			program ??= dump?.GetSerializedProgramAsset()?.ReadSerializedProgram();
-			if (program == null) {
-				assembly.style.display   = DisplayStyle.None;
-				noAssembly.style.display = DisplayStyle.Flex;
-				copyButton.SetEnabled(false);
+			var behaviourId = _selectedBehaviour.GetInstanceID();
+
+			// Use cached result if we already extracted for this behaviour
+			if (_cachedAssemblyId == behaviourId && _cachedAssemblyStr != null) {
+				if (assembly.childCount == 0)
+					RenderAssemblyChunks(assembly, noAssembly, copyButton, chatGptButton, _cachedAssemblyStr);
 				return;
 			}
 
-			if (!AssemblerExtractor.Extract(program, out var str)) {
-				assembly.style.display   = DisplayStyle.None;
-				noAssembly.style.display = DisplayStyle.Flex;
-				copyButton.SetEnabled(false);
-				return;
-			}
+			// Show loading state
+			assembly.style.display   = DisplayStyle.None;
+			noAssembly.style.display = DisplayStyle.Flex;
+			copyButton.SetEnabled(false);
+			chatGptButton?.SetEnabled(false);
 
-			var lines  = str.Split('\n');
-			var chunks = new List<List<string>>();
-			for (var i = 0; i < lines.Length; i += 1) {
-				var chunk = new List<string>();
-				var size  = 0;
-				while (i < lines.Length && size + lines[i].Length + 1 < 4096) {
-					chunk.Add(lines[i]);
-					size += lines[i].Length + 1;
-					i    += 1;
+			var opId = ++_assemblyOpId;
+
+			// Defer extraction one frame so the UI can repaint first
+			EditorApplication.delayCall += () => {
+				if (opId != _assemblyOpId) return;
+				if (!_selectedBehaviour || _selectedBehaviour.GetInstanceID() != behaviourId) return;
+
+				IUdonProgram program = _selectedBehaviour.GetProgram();
+				program ??= _selectedBehaviour.GetSerializedProgramAsset()?.ReadSerializedProgram();
+
+				// Re-fetch UI references after the delay
+				var asm     = _root?.Q("assembly");
+				var noAsm   = _root?.Q("no_assembly");
+				var copyBtn = _root?.Q<Button>("copy_assembly");
+				var cgptBtn = _root?.Q<Button>("open_chatgpt");
+				if (asm == null || noAsm == null || copyBtn == null) return;
+
+				if (program == null || !AssemblerExtractor.Extract(program, out var str)) {
+					asm.style.display   = DisplayStyle.None;
+					noAsm.style.display = DisplayStyle.Flex;
+					copyBtn.SetEnabled(false);
+					cgptBtn?.SetEnabled(false);
+					return;
 				}
 
-				i -= 1;
-				chunks.Add(chunk);
+				_cachedAssemblyId  = behaviourId;
+				_cachedAssemblyStr = str;
+				RenderAssemblyChunks(asm, noAsm, copyBtn, cgptBtn, str);
+			};
+		}
+
+		// Maximum characters rendered in the UI to avoid OOM on large assemblies.
+		private const int MaxDisplayChars = 32768;
+
+		private static void RenderAssemblyChunks(
+			VisualElement assembly, VisualElement noAssembly,
+			Button copyButton, Button chatGptButton, string str) {
+			assembly.Clear();
+
+			var truncated  = str.Length > MaxDisplayChars;
+			var displayStr = truncated ? str.Substring(0, MaxDisplayChars) : str;
+
+			const int chunkSize = 4096;
+			var start  = 0;
+			var chunks = new List<string>();
+			while (start < displayStr.Length) {
+				var end = Math.Min(start + chunkSize, displayStr.Length);
+				if (end < displayStr.Length) {
+					var nl = displayStr.LastIndexOf('\n', end - 1, end - start);
+					if (nl > start) end = nl + 1;
+				}
+				chunks.Add(displayStr.Substring(start, end - start));
+				start = end;
 			}
 
-			assembly.Clear();
 			for (var i = 0; i < chunks.Count; i++) {
-				var chunk = chunks[i];
 				var field = new TextField {
 					multiline  = true,
-					value      = string.Join("\n", chunk),
+					value      = chunks[i],
 					isReadOnly = true
 				};
 				field.AddToClassList("assembly-textfield");
-				if (i == 0 && i != chunks.Count - 1)
+				if (i == 0 && chunks.Count > 1)
 					field.AddToClassList("first-line");
-				else if (i != 0 && i == chunks.Count - 1)
-					field.AddToClassList("last-line");
-				else if (i != 0 && i != chunks.Count - 1)
+				else if (i > 0 && i < chunks.Count - 1)
 					field.AddToClassList("middle-line");
+				else if (i > 0 && i == chunks.Count - 1)
+					field.AddToClassList("last-line");
 				assembly.Add(field);
+			}
+
+			if (truncated) {
+				var notice = new Label(
+					$"... (truncated — assembly is {str.Length:N0} chars. Use Tools > Udon Inspector > Download All Assemblies for the full output.)"
+				);
+				notice.style.unityFontStyleAndWeight = FontStyle.Italic;
+				notice.style.color                  = new StyleColor(new UnityEngine.Color(1f, 0.6f, 0.2f));
+				notice.style.whiteSpace             = WhiteSpace.Normal;
+				assembly.Add(notice);
 			}
 
 			assembly.style.display   = DisplayStyle.Flex;
 			noAssembly.style.display = DisplayStyle.None;
 			copyButton.SetEnabled(true);
+			chatGptButton?.SetEnabled(true);
 		}
 
 
@@ -398,11 +463,17 @@ namespace Nappollen.UdonInspector.Editor {
 			var noVariables = _root?.Q("no_variable");
 			if (variables == null || noVariables == null) return;
 			if (!_selectedBehaviour) {
+				_cachedVariablesId        = -1;
 				variables.style.display   = DisplayStyle.None;
 				noVariables.style.display = DisplayStyle.Flex;
 				return;
 			}
 
+			var behaviourId = _selectedBehaviour.GetInstanceID();
+
+			// Skip re-render if same behaviour and UI is already populated
+			if (_cachedVariablesId == behaviourId && variables.childCount > 0)
+				return;
 
 			var          dump    = _selectedBehaviour;
 			IUdonProgram program = dump?.GetProgram();
@@ -452,41 +523,8 @@ namespace Nappollen.UdonInspector.Editor {
 				child.tooltip = string.Join("\n", infos);
 				child.SetEnabled(true);
 			}
-		}
 
-		[MenuItem("Tools/Udon Inspector/Export Variables")]
-		public static void ExportVariables() {
-			var window = GetWindow<UdonSharpInspectorEditor>();
-			if (!window || !window._selectedBehaviour) {
-				Debug.LogWarning("No UdonBehaviour selected to export variables.");
-				return;
-			}
-
-			var behaviour = window._selectedBehaviour;
-			var program   = behaviour.GetProgram();
-			if (program == null) {
-				Debug.LogWarning("No program found for the selected UdonBehaviour.");
-				return;
-			}
-
-			var symbols    = program.SymbolTable.GetSymbols();
-			var exportData = new Dictionary<string, string>();
-
-			foreach (var symbol in symbols) {
-				var address = program.SymbolTable.GetAddressFromSymbol(symbol);
-				var value   = program.Heap.GetHeapVariable(address);
-				exportData[symbol] = value?.ToString() ?? "null";
-			}
-
-			var csv = "Symbol,Value\n";
-			foreach (var kvp in exportData) {
-				var symbol = kvp.Key.Replace(",", ";");   // Escape commas
-				var value  = kvp.Value.Replace(",", ";"); // Escape commas
-				csv += $"{symbol},{value}\n";
-			}
-
-			System.IO.File.WriteAllText("UdonVariablesExport.csv", csv);
-			Debug.Log("Udon variables exported to UdonVariablesExport.json");
+			_cachedVariablesId = behaviourId;
 		}
 
 		private static void UpdateField(VisualElement field, string name, object value) {

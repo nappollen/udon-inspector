@@ -130,6 +130,28 @@ namespace Nappollen.UdonInspector.Editor {
 				| (startIndex          + 1 < bytes.Length ? bytes[startIndex + 2] & 0xFF << 16 : 0)
 				| (startIndex          + 0 < bytes.Length ? bytes[startIndex + 3] & 0xFF << 24 : 0));
 
+		[MenuItem("Tools/Udon Inspector/Download All ByteCodes")]
+		public static void DownloadAllByteCodes() {
+			Debug.Log("Downloading All ByteCodes");
+
+			var dir = Path.Combine(Application.dataPath, "UdonByteCodes");
+			if (!Directory.Exists(dir))
+				Directory.CreateDirectory(dir);
+
+			var behaviours = UnityEngine.Object.FindObjectsOfType<UdonBehaviour>();
+			foreach (var behaviour in behaviours) {
+				IUdonProgram program = behaviour?.GetProgram();
+				program ??= behaviour?.GetSerializedProgramAsset()?.ReadSerializedProgram();
+				if (program == null) continue;
+				var fileName = $"{behaviour.GetInstanceID()}_{Utils.EscapeName(behaviour.name)}.bytecode";
+				var path     = Path.Combine(dir, fileName);
+				File.WriteAllBytes(path, program.ByteCode);
+				Debug.Log($"ByteCode for {behaviour.name} saved to {path}");
+			}
+
+			Debug.Log("All ByteCodes downloaded");
+		}
+
 		[MenuItem("Tools/Udon Inspector/Download All Assemblies")]
 		public static void DownloadAllAssemblies() {
 			Debug.Log("Downloading All Assemblies");
@@ -144,7 +166,8 @@ namespace Nappollen.UdonInspector.Editor {
 				program ??= behaviour?.GetSerializedProgramAsset()?.ReadSerializedProgram();
 				if (program == null) continue;
 				if (!Extract(program, out var str)) continue;
-				var path = Path.Combine(dir, $"{behaviour.GetInstanceID()}_{behaviour.name}.udonasm");
+				var fileName = $"{behaviour.GetInstanceID()}_{Utils.EscapeName(behaviour.name)}.udonasm";
+				var path     = Path.Combine(dir, fileName);
 				File.WriteAllText(path, str);
 				Debug.Log($"Udon assembly for {behaviour.name} saved to {path}");
 			}
